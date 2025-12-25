@@ -15,7 +15,6 @@ dependencies = [
     "fastrtc>=0.0.34",
     "gradio==5.50.1.dev1",
     "huggingface_hub>=0.34.4",
-    "opencv-python>=4.12.0.88",
 
     #Environment variables
     "python-dotenv",
@@ -35,14 +34,6 @@ dependencies = [
 reachy_mini_wireless = [
   "PyGObject>=3.42.2,<=3.46.0", 
   "gst-signalling>=1.1.2",
-]
-local_vision = ["torch", "transformers", "num2words"]
-yolo_vision = ["ultralytics", "supervision"]
-mediapipe_vision = ["mediapipe==0.10.14"]
-all_vision = [
-  "torch", "transformers", "num2words",
-  "ultralytics", "supervision",
-  "mediapipe==0.10.14",
 ]
 
 [dependency-groups]

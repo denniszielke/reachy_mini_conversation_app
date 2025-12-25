@@ -7,19 +7,6 @@ from typing import Tuple
 def parse_args() -> Tuple[argparse.Namespace, list]:  # type: ignore
     """Parse command line arguments."""
     parser = argparse.ArgumentParser("Reachy Mini Conversation App")
-    parser.add_argument(
-        "--head-tracker",
-        choices=["yolo", "mediapipe", None],
-        default=None,
-        help="Choose head tracker (default: None)",
-    )
-    parser.add_argument("--no-camera", default=False, action="store_true", help="Disable camera usage")
-    parser.add_argument(
-        "--local-vision",
-        default=False,
-        action="store_true",
-        help="Use local vision model instead of gpt-realtime vision",
-    )
     parser.add_argument("--gradio", default=False, action="store_true", help="Open gradio interface")
     parser.add_argument("--debug", default=False, action="store_true", help="Enable debug logging")
     parser.add_argument(

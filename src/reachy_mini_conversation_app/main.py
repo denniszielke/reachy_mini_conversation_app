@@ -50,9 +50,6 @@ def run(
     logger = setup_logger(args.debug)
     logger.info("Starting Reachy Mini Conversation App")
 
-    if args.no_camera and args.head_tracker is not None:
-        logger.warning("Head tracking is not activated due to --no-camera.")
-
     if robot is None:
         # Initialize robot with appropriate backend
         # TODO: Implement dynamic robot connection detection
@@ -200,9 +197,6 @@ class ReachyMiniConversationApp(ReachyMiniApp):  # type: ignore[misc]
         asyncio.set_event_loop(loop)
 
         args, _ = parse_args()
-
-        # is_wireless = reachy_mini.client.get_status()["wireless_version"]
-        # args.head_tracker = None if is_wireless else "mediapipe"
 
         instance_path = self._get_instance_path().parent
         run(
