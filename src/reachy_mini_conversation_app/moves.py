@@ -244,11 +244,9 @@ class MovementManager:
     def __init__(
         self,
         current_robot: ReachyMini,
-        camera_worker: "Any" = None,
     ):
         """Initialize movement manager."""
         self.current_robot = current_robot
-        self.camera_worker = camera_worker
 
         # Single timing source for durations
         self._now = time.monotonic
@@ -704,13 +702,8 @@ class MovementManager:
 
     def _update_face_tracking(self, current_time: float) -> None:
         """Get face tracking offsets from camera worker thread."""
-        if self.camera_worker is not None:
-            # Get face tracking offsets from camera worker thread
-            offsets = self.camera_worker.get_face_tracking_offsets()
-            self.state.face_tracking_offsets = offsets
-        else:
-            # No camera worker, use neutral offsets
-            self.state.face_tracking_offsets = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+        # No camera worker, use neutral offsets
+        self.state.face_tracking_offsets = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
 
     def start(self) -> None:
         """Start the worker thread that drives the 100 Hz control loop."""

@@ -82,7 +82,6 @@ def run(
 
     movement_manager = MovementManager(
         current_robot=robot,
-        camera_worker=None,
     )
 
     head_wobbler = HeadWobbler(set_speech_offsets=movement_manager.set_speech_offsets)
@@ -90,8 +89,6 @@ def run(
     deps = ToolDependencies(
         reachy_mini=robot,
         movement_manager=movement_manager,
-        camera_worker=None,
-        vision_manager=None,
         head_wobbler=head_wobbler,
     )
     current_file_path = os.path.dirname(os.path.abspath(__file__))
