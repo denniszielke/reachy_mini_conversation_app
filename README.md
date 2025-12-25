@@ -13,7 +13,7 @@ tags:
 
 # Reachy Mini conversation app
 
-Conversational app for the Reachy Mini robot combining OpenAI's realtime APIs, vision pipelines, and choreographed motion libraries.
+Conversational app for the Reachy Mini robot combining OpenAI's realtime APIs (including Azure OpenAI) and choreographed motion libraries.
 
 ![Reachy Mini Dance](docs/assets/reachy_mini_dance.gif)
 
@@ -26,10 +26,9 @@ The app follows a layered architecture connecting the user, AI services, and rob
 </p>
 
 ## Overview
-- Real-time audio conversation loop powered by the OpenAI realtime API and `fastrtc` for low-latency streaming.
-- Vision processing uses gpt-realtime by default (when camera tool is used), with optional local vision processing using SmolVLM2 model running on-device (CPU/GPU/MPS) via `--local-vision` flag.
-- Layered motion system queues primary moves (dances, emotions, goto poses, breathing) while blending speech-reactive wobble and face-tracking.
-- Async tool dispatch integrates robot motion, camera capture, and optional face-tracking capabilities through a Gradio web UI with live transcripts.
+- Real-time audio conversation loop powered by the OpenAI realtime API (with optional Azure OpenAI support) and `fastrtc` for low-latency streaming.
+- Layered motion system queues primary moves (dances, emotions, goto poses, breathing) while blending speech-reactive wobble.
+- Async tool dispatch integrates robot motion through a Gradio web UI with live transcripts.
 
 ## Installation
 
@@ -52,15 +51,11 @@ uv sync
 To include optional dependencies:
 ```
 uv sync --extra reachy_mini_wireless # For wireless Reachy Mini with GStreamer support
-uv sync --extra local_vision         # For local PyTorch/Transformers vision
-uv sync --extra yolo_vision          # For YOLO-based vision
-uv sync --extra mediapipe_vision     # For MediaPipe-based vision
-uv sync --extra all_vision           # For all vision features
 ```
 
 You can combine extras or include dev dependencies:
 ```
-uv sync --extra all_vision --group dev
+uv sync --extra reachy_mini_wireless --group dev
 ```
 
 ### Using pip
@@ -77,12 +72,6 @@ Install optional extras depending on the feature set you need:
 # Wireless Reachy Mini support
 pip install -e .[reachy_mini_wireless]
 
-# Vision stacks (choose at least one if you plan to run face tracking)
-pip install -e .[local_vision]
-pip install -e .[yolo_vision]
-pip install -e .[mediapipe_vision]
-pip install -e .[all_vision]        # installs every vision extra
-
 # Tooling for development workflows
 pip install -e .[dev]
 ```
@@ -94,24 +83,20 @@ Some wheels (e.g. PyTorch) are large and require compatible CUDA or CPU buildsâ€
 | Extra | Purpose | Notes |
 |-------|---------|-------|
 | `reachy_mini_wireless` | Wireless Reachy Mini with GStreamer support. | Required for wireless versions of Reachy Mini, includes GStreamer dependencies.
-| `local_vision` | Run the local VLM (SmolVLM2) through PyTorch/Transformers. | GPU recommended; ensure compatible PyTorch builds for your platform.
-| `yolo_vision` | YOLOv8 tracking via `ultralytics` and `supervision`. | CPU friendly; supports the `--head-tracker yolo` option.
-| `mediapipe_vision` | Lightweight landmark tracking with MediaPipe. | Works on CPU; enables `--head-tracker mediapipe`.
-| `all_vision` | Convenience alias installing every vision extra. | Install when you want the flexibility to experiment with every provider.
-| `dev` | Developer tooling (`pytest`, `ruff`). | Add on top of either base or `all_vision` environments.
+| `dev` | Developer tooling (`pytest`, `ruff`). | Add on top of base environment.
 
 ## Configuration
 
 1. Copy `.env.example` to `.env`.
-2. Fill in the required values, notably the OpenAI API key.
+2. Fill in the required values, notably the OpenAI API key (or Azure OpenAI credentials).
 
 | Variable | Description |
 |----------|-------------|
-| `OPENAI_API_KEY` | Required. Grants access to the OpenAI realtime endpoint.
-| `MODEL_NAME` | Override the realtime model (defaults to `gpt-realtime`). Used for both conversation and vision (unless `--local-vision` flag is used).
-| `HF_HOME` | Cache directory for local Hugging Face downloads (only used with `--local-vision` flag, defaults to `./cache`).
-| `HF_TOKEN` | Optional token for Hugging Face models (only used with `--local-vision` flag, falls back to `huggingface-cli login`).
-| `LOCAL_VISION_MODEL` | Hugging Face model path for local vision processing (only used with `--local-vision` flag, defaults to `HuggingFaceTB/SmolVLM2-2.2B-Instruct`).
+| `OPENAI_API_KEY` | Required for OpenAI. Grants access to the OpenAI realtime endpoint.
+| `AZURE_OPENAI_API_KEY` | Optional. If set along with `AZURE_OPENAI_ENDPOINT`, Azure OpenAI will be used instead of OpenAI.
+| `AZURE_OPENAI_ENDPOINT` | Optional. Your Azure OpenAI endpoint URL (e.g., `https://your-resource.openai.azure.com`). Required when using Azure OpenAI.
+| `MODEL_NAME` | Override the realtime model (defaults to `gpt-realtime`).
+| `HF_TOKEN` | Optional token for Hugging Face models (used for recorded emotions dataset).
 
 ## Running the app
 
@@ -121,31 +106,22 @@ Activate your virtual environment, ensure the Reachy Mini robot (or simulator) i
 reachy-mini-conversation-app
 ```
 
-By default, the app runs in console mode for direct audio interaction. Use the `--gradio` flag to launch a web UI served locally at http://127.0.0.1:7860/ (required when running in simulation mode). With a camera attached, vision is handled by the gpt-realtime model when the camera tool is used. For local vision processing, use the `--local-vision` flag to process frames periodically using the SmolVLM2 model. Additionally, you can enable face tracking via YOLO or MediaPipe pipelines depending on the extras you installed.
+By default, the app runs in console mode for direct audio interaction. Use the `--gradio` flag to launch a web UI served locally at http://127.0.0.1:7860/ (required when running in simulation mode).
 
 ### CLI options
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `--head-tracker {yolo,mediapipe}` | `None` | Select a face-tracking backend when a camera is available. YOLO is implemented locally, MediaPipe comes from the `reachy_mini_toolbox` package. Requires the matching optional extra. |
-| `--no-camera` | `False` | Run without camera capture or face tracking. |
-| `--local-vision` | `False` | Use local vision model (SmolVLM2) for periodic image processing instead of gpt-realtime vision. Requires `local_vision` extra to be installed. |
 | `--gradio` | `False` | Launch the Gradio web UI. Without this flag, runs in console mode. Required when running in simulation mode. |
 | `--debug` | `False` | Enable verbose logging for troubleshooting. |
 | `--wireless-version` | `False` | Use GStreamer backend for wireless version of the robot. Requires `reachy_mini_wireless` extra to be installed.
 
 
 ### Examples
-- Run on hardware with MediaPipe face tracking:
+- Run on hardware with Gradio UI:
 
   ```bash
-  reachy-mini-conversation-app --head-tracker mediapipe
-  ```
-
-- Run with local vision processing (requires `local_vision` extra):
-
-  ```bash
-  reachy-mini-conversation-app --local-vision
+  reachy-mini-conversation-app --gradio
   ```
 
 - Run with wireless support (requires `reachy_mini_wireless` extra and daemon started with `--wireless-version`):
@@ -154,10 +130,12 @@ By default, the app runs in console mode for direct audio interaction. Use the `
   reachy-mini-conversation-app --wireless-version
   ```
 
-- Disable the camera pipeline (audio-only conversation):
+- Run with Azure OpenAI:
+
+  Set `AZURE_OPENAI_API_KEY` and `AZURE_OPENAI_ENDPOINT` in your `.env` file, then run normally:
 
   ```bash
-  reachy-mini-conversation-app --no-camera
+  reachy-mini-conversation-app
   ```
 
 ### Troubleshooting
@@ -174,8 +152,6 @@ It probably means that the Reachy Mini's daemon isn't running. Install [Reachy M
 | Tool | Action | Dependencies |
 |------|--------|--------------|
 | `move_head` | Queue a head pose change (left/right/up/down/front). | Core install only. |
-| `camera` | Capture the latest camera frame and send it to gpt-realtime for vision analysis. | Requires camera worker; uses gpt-realtime vision by default. |
-| `head_tracking` | Enable or disable face-tracking offsets (not facial recognition - only detects and tracks face position). | Camera worker with configured head tracker. |
 | `dance` | Queue a dance from `reachy_mini_dances_library`. | Core install only. |
 | `stop_dance` | Clear queued dances. | Core install only. |
 | `play_emotion` | Play a recorded emotion clip via Hugging Face assets. | Needs `HF_TOKEN` for the recorded emotions dataset. |
@@ -207,7 +183,7 @@ play_emotion
 # My custom tool defined locally
 sweep_look
 ```
-Tools are resolved first from Python files in the profile folder (custom tools), then from the shared library `src/reachy_mini_conversation_app/tools/` (e.g., `dance`, `head_tracking`). 
+Tools are resolved first from Python files in the profile folder (custom tools), then from the shared library `src/reachy_mini_conversation_app/tools/` (e.g., `dance`). 
 
 ### Custom tools
 On top of built-in tools found in the shared library, you can implement custom tools specific to your profile by adding Python files in the profile folder. 
