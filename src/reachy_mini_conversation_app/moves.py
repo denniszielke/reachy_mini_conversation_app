@@ -3,7 +3,7 @@
 Design overview
 - Primary moves (emotions, dances, goto, breathing) are mutually exclusive and run
   sequentially.
-- Secondary moves (speech sway, face tracking) are additive offsets applied on top
+- Secondary moves (speech sway) are additive offsets applied on top
   of the current primary pose.
 - There is a single control point to the robot: `ReachyMini.set_target`.
 - The control loop runs near 100 Hz and is phase-aligned via a monotonic clock.
@@ -183,14 +183,6 @@ class MovementState:
         0.0,
         0.0,
     )
-    face_tracking_offsets: Tuple[float, float, float, float, float, float] = (
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-        0.0,
-    )
 
     # Status flags
     last_primary_pose: FullBodyPose | None = None
@@ -244,11 +236,9 @@ class MovementManager:
     def __init__(
         self,
         current_robot: ReachyMini,
-        camera_worker: "Any" = None,
     ):
         """Initialize movement manager."""
         self.current_robot = current_robot
-        self.camera_worker = camera_worker
 
         # Single timing source for durations
         self._now = time.monotonic
@@ -294,17 +284,6 @@ class MovementManager:
             0.0,
         )
         self._speech_offsets_dirty = False
-
-        self._face_offsets_lock = threading.Lock()
-        self._pending_face_offsets: Tuple[float, float, float, float, float, float] = (
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-        )
-        self._face_offsets_dirty = False
 
         self._shared_state_lock = threading.Lock()
         self._shared_last_activity_time = self.state.last_activity_time
@@ -384,7 +363,7 @@ class MovementManager:
             self._handle_command(command, payload, current_time)
 
     def _apply_pending_offsets(self) -> None:
-        """Apply the most recent speech/face offset updates."""
+        """Apply the most recent speech offset updates."""
         speech_offsets: Tuple[float, float, float, float, float, float] | None = None
         with self._speech_offsets_lock:
             if self._speech_offsets_dirty:
@@ -393,16 +372,6 @@ class MovementManager:
 
         if speech_offsets is not None:
             self.state.speech_offsets = speech_offsets
-            self.state.update_activity()
-
-        face_offsets: Tuple[float, float, float, float, float, float] | None = None
-        with self._face_offsets_lock:
-            if self._face_offsets_dirty:
-                face_offsets = self._pending_face_offsets
-                self._face_offsets_dirty = False
-
-        if face_offsets is not None:
-            self.state.face_tracking_offsets = face_offsets
             self.state.update_activity()
 
     def _handle_command(self, command: str, payload: Any, current_time: float) -> None:
@@ -562,16 +531,9 @@ class MovementManager:
         return primary_full_body_pose
 
     def _get_secondary_pose(self) -> FullBodyPose:
-        """Get the secondary full body pose from speech and face tracking offsets."""
-        # Combine speech sway offsets + face tracking offsets for secondary pose
-        secondary_offsets = [
-            self.state.speech_offsets[0] + self.state.face_tracking_offsets[0],
-            self.state.speech_offsets[1] + self.state.face_tracking_offsets[1],
-            self.state.speech_offsets[2] + self.state.face_tracking_offsets[2],
-            self.state.speech_offsets[3] + self.state.face_tracking_offsets[3],
-            self.state.speech_offsets[4] + self.state.face_tracking_offsets[4],
-            self.state.speech_offsets[5] + self.state.face_tracking_offsets[5],
-        ]
+        """Get the secondary full body pose from speech offsets."""
+        # Use speech sway offsets for secondary pose
+        secondary_offsets = list(self.state.speech_offsets)
 
         secondary_head_pose = create_head_pose(
             x=secondary_offsets[0],
@@ -702,16 +664,6 @@ class MovementManager:
         )
         stats.reset()
 
-    def _update_face_tracking(self, current_time: float) -> None:
-        """Get face tracking offsets from camera worker thread."""
-        if self.camera_worker is not None:
-            # Get face tracking offsets from camera worker thread
-            offsets = self.camera_worker.get_face_tracking_offsets()
-            self.state.face_tracking_offsets = offsets
-        else:
-            # No camera worker, use neutral offsets
-            self.state.face_tracking_offsets = (0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
-
     def start(self) -> None:
         """Start the worker thread that drives the 100 Hz control loop."""
         if self._thread is not None and self._thread.is_alive():
@@ -823,19 +775,16 @@ class MovementManager:
             # 2) Manage the primary move queue (start new move, end finished move, breathing)
             self._update_primary_motion(loop_start)
 
-            # 3) Update vision-based secondary offsets
-            self._update_face_tracking(loop_start)
-
-            # 4) Build primary and secondary full-body poses, then fuse them
+            # 3) Build primary and secondary full-body poses, then fuse them
             head, antennas, body_yaw = self._compose_full_body_pose(loop_start)
 
-            # 5) Apply listening antenna freeze or blend-back
+            # 4) Apply listening antenna freeze or blend-back
             antennas_cmd = self._calculate_blended_antennas(antennas)
 
-            # 6) Single set_target call - the only control point
+            # 5) Single set_target call - the only control point
             self._issue_control_command(head, antennas_cmd, body_yaw)
 
-            # 7) Adaptive sleep to align to next tick, then publish shared state
+            # 6) Adaptive sleep to align to next tick, then publish shared state
             sleep_time, freq_stats = self._schedule_next_tick(loop_start, freq_stats)
             self._publish_shared_state()
             self._record_frequency_snapshot(freq_stats)

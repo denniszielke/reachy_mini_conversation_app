@@ -7,9 +7,7 @@ from typing import Any, Final, Tuple, Literal, Optional
 from pathlib import Path
 from datetime import datetime
 
-import cv2
 import numpy as np
-import gradio as gr
 from openai import AsyncOpenAI
 from fastrtc import AdditionalOutputs, AsyncStreamHandler, wait_for_item, audio_to_int16
 from numpy.typing import NDArray
@@ -168,7 +166,16 @@ class OpenaiRealtimeHandler(AsyncStreamHandler):
                 logger.warning("OPENAI_API_KEY missing. Proceeding with a placeholder (tests/offline).")
                 openai_api_key = "DUMMY"
 
-        self.client = AsyncOpenAI(api_key=openai_api_key)
+        # Check if Azure OpenAI credentials are set
+        if config.AZURE_OPENAI_API_KEY and config.AZURE_OPENAI_ENDPOINT:
+            logger.info("Using Azure OpenAI endpoint: %s", config.AZURE_OPENAI_ENDPOINT)
+            self.client = AsyncOpenAI(
+                api_key=config.AZURE_OPENAI_API_KEY,
+                azure_endpoint=config.AZURE_OPENAI_ENDPOINT,
+                api_version="2024-10-01-preview",
+            )
+        else:
+            self.client = AsyncOpenAI(api_key=openai_api_key)
 
         max_attempts = 3
         for attempt in range(1, max_attempts + 1):
@@ -400,44 +407,6 @@ class OpenaiRealtimeHandler(AsyncStreamHandler):
                             },
                         ),
                     )
-
-                    if tool_name == "camera" and "b64_im" in tool_result:
-                        # use raw base64, don't json.dumps (which adds quotes)
-                        b64_im = tool_result["b64_im"]
-                        if not isinstance(b64_im, str):
-                            logger.warning("Unexpected type for b64_im: %s", type(b64_im))
-                            b64_im = str(b64_im)
-                        await self.connection.conversation.item.create(
-                            item={
-                                "type": "message",
-                                "role": "user",
-                                "content": [
-                                    {
-                                        "type": "input_image",
-                                        "image_url": f"data:image/jpeg;base64,{b64_im}",
-                                    },
-                                ],
-                            },
-                        )
-                        logger.info("Added camera image to conversation")
-
-                        if self.deps.camera_worker is not None:
-                            np_img = self.deps.camera_worker.get_latest_frame()
-                            if np_img is not None:
-                                # Camera frames are BGR from OpenCV; convert so Gradio displays correct colors.
-                                rgb_frame = cv2.cvtColor(np_img, cv2.COLOR_BGR2RGB)
-                            else:
-                                rgb_frame = None
-                            img = gr.Image(value=rgb_frame)
-
-                            await self.output_queue.put(
-                                AdditionalOutputs(
-                                    {
-                                        "role": "assistant",
-                                        "content": img,
-                                    },
-                                ),
-                            )
 
                     # if this tool call was triggered by an idle signal, don't make the robot speak
                     # for other tool calls, let the robot reply out loud

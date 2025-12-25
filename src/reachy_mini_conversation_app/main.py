@@ -17,7 +17,6 @@ from reachy_mini import ReachyMini, ReachyMiniApp
 from reachy_mini_conversation_app.utils import (
     parse_args,
     setup_logger,
-    handle_vision_stuff,
 )
 
 
@@ -51,9 +50,6 @@ def run(
     logger = setup_logger(args.debug)
     logger.info("Starting Reachy Mini Conversation App")
 
-    if args.no_camera and args.head_tracker is not None:
-        logger.warning("Head tracking is not activated due to --no-camera.")
-
     if robot is None:
         # Initialize robot with appropriate backend
         # TODO: Implement dynamic robot connection detection
@@ -81,11 +77,8 @@ def run(
         robot.client.disconnect()
         sys.exit(1)
 
-    camera_worker, _, vision_manager = handle_vision_stuff(args, robot)
-
     movement_manager = MovementManager(
         current_robot=robot,
-        camera_worker=camera_worker,
     )
 
     head_wobbler = HeadWobbler(set_speech_offsets=movement_manager.set_speech_offsets)
@@ -93,8 +86,6 @@ def run(
     deps = ToolDependencies(
         reachy_mini=robot,
         movement_manager=movement_manager,
-        camera_worker=camera_worker,
-        vision_manager=vision_manager,
         head_wobbler=head_wobbler,
     )
     current_file_path = os.path.dirname(os.path.abspath(__file__))
@@ -159,10 +150,6 @@ def run(
     # Each async service → its own thread/loop
     movement_manager.start()
     head_wobbler.start()
-    if camera_worker:
-        camera_worker.start()
-    if vision_manager:
-        vision_manager.start()
 
     def poll_stop_event() -> None:
         """Poll the stop event to allow graceful shutdown."""
@@ -185,10 +172,6 @@ def run(
     finally:
         movement_manager.stop()
         head_wobbler.stop()
-        if camera_worker:
-            camera_worker.stop()
-        if vision_manager:
-            vision_manager.stop()
 
         # Ensure media is explicitly closed before disconnecting
         try:
@@ -214,9 +197,6 @@ class ReachyMiniConversationApp(ReachyMiniApp):  # type: ignore[misc]
         asyncio.set_event_loop(loop)
 
         args, _ = parse_args()
-
-        # is_wireless = reachy_mini.client.get_status()["wireless_version"]
-        # args.head_tracker = None if is_wireless else "mediapipe"
 
         instance_path = self._get_instance_path().parent
         run(
