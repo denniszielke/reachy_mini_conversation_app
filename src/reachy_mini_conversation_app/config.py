@@ -23,6 +23,10 @@ class Config:
     # Required
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")  # The key is downloaded in console.py if needed
 
+    # Azure OpenAI (optional - if set, Azure OpenAI will be used instead of OpenAI)
+    AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
+    AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")
+
     # Optional
     MODEL_NAME = os.getenv("MODEL_NAME", "gpt-realtime")
     HF_HOME = os.getenv("HF_HOME", "./cache")

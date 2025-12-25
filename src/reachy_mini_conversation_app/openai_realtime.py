@@ -166,7 +166,16 @@ class OpenaiRealtimeHandler(AsyncStreamHandler):
                 logger.warning("OPENAI_API_KEY missing. Proceeding with a placeholder (tests/offline).")
                 openai_api_key = "DUMMY"
 
-        self.client = AsyncOpenAI(api_key=openai_api_key)
+        # Check if Azure OpenAI credentials are set
+        if config.AZURE_OPENAI_API_KEY and config.AZURE_OPENAI_ENDPOINT:
+            logger.info("Using Azure OpenAI endpoint: %s", config.AZURE_OPENAI_ENDPOINT)
+            self.client = AsyncOpenAI(
+                api_key=config.AZURE_OPENAI_API_KEY,
+                azure_endpoint=config.AZURE_OPENAI_ENDPOINT,
+                api_version="2024-10-01-preview",
+            )
+        else:
+            self.client = AsyncOpenAI(api_key=openai_api_key)
 
         max_attempts = 3
         for attempt in range(1, max_attempts + 1):
