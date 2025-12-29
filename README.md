@@ -36,6 +36,43 @@ The app follows a layered architecture connecting the user, AI services, and rob
 > Before using this app, you need to install [Reachy Mini's SDK](https://github.com/pollen-robotics/reachy_mini/).<br>
 > Windows support is currently experimental and has not been extensively tested. Use with caution.
 
+Install LLVM
+```bash
+brew install llvm@20
+brew install llvm@20
+
+CLANG_CONFIG_FILE_SYSTEM_DIR: /usr/local/etc/clang
+CLANG_CONFIG_FILE_USER_DIR:   ~/.config/clang
+
+LLD is now provided in a separate formula:
+  brew install lld@20
+
+Using `clang`, `clang++`, etc., requires a CLT installation at `/Library/Developer/CommandLineTools`.
+If you don't want to install the CLT, you can write appropriate configuration files pointing to your
+SDK at ~/.config/clang.
+
+To use the bundled libunwind please use the following LDFLAGS:
+  LDFLAGS="-L/usr/local/opt/llvm@20/lib/unwind -lunwind"
+
+To use the bundled libc++ please use the following LDFLAGS:
+  LDFLAGS="-L/usr/local/opt/llvm@20/lib/c++ -L/usr/local/opt/llvm@20/lib/unwind -lunwind"
+
+NOTE: You probably want to use the libunwind and libc++ provided by macOS unless you know what you're doing.
+
+llvm@20 is keg-only, which means it was not symlinked into /usr/local,
+because this is an alternate version of another formula.
+
+If you need to have llvm@20 first in your PATH, run:
+  echo 'export PATH="/usr/local/opt/llvm@20/bin:$PATH"' >> ~/.zshrc
+
+For compilers to find llvm@20 you may need to set:
+  export LDFLAGS="-L/usr/local/opt/llvm@20/lib"
+  export CPPFLAGS="-I/usr/local/opt/llvm@20/include"
+
+For cmake to find llvm@20 you may need to set:
+  export CMAKE_PREFIX_PATH="/usr/local/opt/llvm@20"
+```
+
 ### Using uv
 You can set up the project quickly using [uv](https://docs.astral.sh/uv/):
 

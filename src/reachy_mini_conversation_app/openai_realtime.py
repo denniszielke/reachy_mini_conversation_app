@@ -168,11 +168,11 @@ class OpenaiRealtimeHandler(AsyncStreamHandler):
 
         # Check if Azure OpenAI credentials are set
         if config.AZURE_OPENAI_API_KEY and config.AZURE_OPENAI_ENDPOINT:
+            base_url = config.AZURE_OPENAI_ENDPOINT.replace("https://", "wss://").rstrip("/") + "/openai/v1"
             logger.info("Using Azure OpenAI endpoint: %s", config.AZURE_OPENAI_ENDPOINT)
-            self.client = AsyncOpenAI(
-                api_key=config.AZURE_OPENAI_API_KEY,
-                azure_endpoint=config.AZURE_OPENAI_ENDPOINT,
-                api_version="2024-10-01-preview",
+            self.client =  AsyncOpenAI(
+                websocket_base_url=base_url,
+                api_key=openai_api_key
             )
         else:
             self.client = AsyncOpenAI(api_key=openai_api_key)

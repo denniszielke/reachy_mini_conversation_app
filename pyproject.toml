@@ -30,12 +30,6 @@ dependencies = [
     "gradio_client>=1.13.3",
 ]
 
-[project.optional-dependencies]
-reachy_mini_wireless = [
-  "PyGObject>=3.42.2,<=3.46.0", 
-  "gst-signalling>=1.1.2",
-]
-
 [dependency-groups]
 dev = [
   "pytest",
